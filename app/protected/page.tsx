@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { Bell, LogOut, Palette, Settings, UserRound } from "lucide-react";
 
@@ -61,7 +62,8 @@ export default async function ProtectedPage() {
               </p>
             </div>
             <p className="text-sm text-muted-foreground">
-              Signed in as <span className="font-medium text-foreground">{email}</span>
+              Signed in as{" "}
+              <span className="font-medium text-foreground">{email}</span>
             </p>
           </div>
         </div>
@@ -111,7 +113,8 @@ export default async function ProtectedPage() {
                 <UserRound className="h-5 w-5 text-muted-foreground" />
               </div>
               <p className="text-sm text-muted-foreground">
-                Basic account information pulled from your authenticated session.
+                Basic account information pulled from your authenticated
+                session.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
