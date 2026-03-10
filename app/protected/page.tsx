@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { Bell, LogOut, Palette, Settings, UserRound } from "lucide-react";
 
