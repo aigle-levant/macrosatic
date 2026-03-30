@@ -14,7 +14,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import type { MainDashProps } from "./main-dash-types";
 
-export function MainDash({ country, region, city, name }: MainDashProps) {
+export default function MainDash({ country, region, city, name }: MainDashProps) {
 
 
   return (

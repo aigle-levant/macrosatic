@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -19,7 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Step = "qr" | "verify" | "success";
 
-export function Mfa() {
+export default function Mfa() {
   const supabase = createClient();
 
   const [open, setOpen] = useState(false);
