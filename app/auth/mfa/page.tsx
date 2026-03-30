@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { Badge } from "@/components/ui/badge";
-import { Mfa } from "@/components/dashboard/enable-mfa";
+import Mfa from "@/components/dashboard/Mfa";
 import {
   Card,
   CardAction,
