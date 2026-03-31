@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { MainDash } from "./main-dash";
+import MainDash from "./main-dash";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
