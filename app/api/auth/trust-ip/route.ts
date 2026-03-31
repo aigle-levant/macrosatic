@@ -9,7 +9,20 @@ export async function POST() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } },
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {
+            // edge/runtime safe
+          }
+        },
+      },
+    },
   );
 
   const {
@@ -18,11 +31,14 @@ export async function POST() {
   if (!user)
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const ip = getClientIP();
+  const ip = await getClientIP();
 
   const { error } = await supabase
-    .from("trusted_ips")
-    .upsert({ user_id: user.id, ip_address: ip }); // upsert = no duplicate error
+    .from("user_ip")
+    .upsert(
+      { user_id: user.id, ip_address: ip },
+      { onConflict: "user_id,ip_address" },
+    );
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 400 });

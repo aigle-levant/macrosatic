@@ -8,7 +8,20 @@ export async function GET() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } },
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {
+            // edge/runtime safe
+          }
+        },
+      },
+    },
   );
 
   const {
@@ -17,14 +30,14 @@ export async function GET() {
   if (!user)
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const ip = getClientIP();
+  const ip = await getClientIP();
 
   const { data } = await supabase
     .from("user_ip")
     .select("id")
     .eq("user_id", user.id)
     .eq("ip_address", ip)
-    .single();
+    .maybeSingle();
 
   return NextResponse.json({ trusted: !!data, ip });
 }
