@@ -13,6 +13,7 @@ import { LogOut, Palette } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import type { MainDashProps } from "./main-dash-types";
+import MFASettings from "./mfa-settings";
 
 export default function MainDash({ country, region, city, name }: MainDashProps) {
 
@@ -34,37 +35,16 @@ export default function MainDash({ country, region, city, name }: MainDashProps)
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             User belongs to {city}, {region}, {country}.
-
-            <p className="text-gray-400 dark:text-gray-500 pt-5 text-xs">Geolocation is obtained from Vercel headers via Vercel Edge network.</p>
+            <p className="text-gray-400 dark:text-gray-500 pt-5 text-xs">
+              Geolocation is obtained from Vercel headers via Vercel Edge
+              network.
+            </p>
           </CardContent>
         </Card>
       </TabsContent>
       <TabsContent value="mfa">
         <Card>
-          <CardHeader>
-            <CardTitle>MFA</CardTitle>
-
-            {false ? (
-              <>
-                <CardDescription>
-                  MFA is disabled in this account. For full experience, enable
-                  MFA.
-                </CardDescription>
-                <CardContent className="text-sm text-muted-foreground">
-                  Page views are up 25% compared to last month.
-                </CardContent>
-              </>
-            ) : (
-              <>
-                <CardDescription>
-                  Well done! You have enabled MFA.
-                </CardDescription>
-                <CardContent className="text-sm text-muted-foreground">
-                  Page views are up 25% compared to last month.
-                </CardContent>
-              </>
-            )}
-          </CardHeader>
+          <MFASettings />
         </Card>
       </TabsContent>
       <TabsContent value="settings">

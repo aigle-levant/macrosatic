@@ -1,12 +1,14 @@
+// lib/get-ip.ts
+
 import { headers } from "next/headers";
 
-export async function getClientIP(): Promise<string> {
+export async function getClientIP() {
   const headersList = await headers();
 
-  // Vercel / proxies set this
   const forwarded = headersList.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
+  const realIP = headersList.get("x-real-ip");
 
-  // Fallback
-  return headersList.get("x-real-ip") ?? "unknown";
+  const ip = forwarded?.split(",")[0].trim() || realIP || "unknown";
+
+  return ip;
 }

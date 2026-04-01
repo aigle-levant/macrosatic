@@ -1,11 +1,13 @@
-// app/api/auth/trust-ip/route.ts
+// app/auth/callback/route.ts
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getClientIP } from "@/lib/get-ip";
 
-export async function POST() {
+export async function GET(request: Request) {
   const cookieStore = await cookies();
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -17,30 +19,41 @@ export async function POST() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
-          } catch {
-            // edge/runtime safe
-          }
+          } catch {}
         },
       },
     },
   );
 
+  // ✅ exchange session after OTP click
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+
+  if (!code) {
+    return NextResponse.redirect("/auth/error");
+  }
+
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    return NextResponse.redirect("/auth/error");
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user)
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  if (!user) {
+    return NextResponse.redirect("/auth/error");
+  }
 
   const ip = await getClientIP();
 
-  const { error } = await supabase
-    .from("user_ip")
-    .upsert(
-      { user_id: user.id, ip_address: ip },
-      { onConflict: "user_id,ip_address" },
-    );
+  // ✅ INSERT trusted IP
+  await supabase.from("user_ip").insert({
+    user_id: user.id,
+    ip_address: ip,
+  });
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ success: true });
+  // ✅ redirect to protected page
+  return NextResponse.redirect("/protected");
 }

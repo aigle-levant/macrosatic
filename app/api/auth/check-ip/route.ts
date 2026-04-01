@@ -5,6 +5,7 @@ import { getClientIP } from "@/lib/get-ip";
 
 export async function GET() {
   const cookieStore = await cookies();
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -16,9 +17,7 @@ export async function GET() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
-          } catch {
-            // edge/runtime safe
-          }
+          } catch {}
         },
       },
     },
@@ -27,8 +26,10 @@ export async function GET() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user)
+
+  if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
 
   const ip = await getClientIP();
 
@@ -39,5 +40,8 @@ export async function GET() {
     .eq("ip_address", ip)
     .maybeSingle();
 
-  return NextResponse.json({ trusted: !!data, ip });
+  return NextResponse.json({
+    trusted: !!data,
+    ip,
+  });
 }

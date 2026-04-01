@@ -17,9 +17,7 @@ export async function POST() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
-          } catch {
-            // edge/runtime safe
-          }
+          } catch {}
         },
       },
     },
@@ -33,28 +31,26 @@ export async function POST() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // ✅ GET CLIENT IP
   const ip = await getClientIP();
 
-  // ✅ CHECK TRUSTED IP
+  // ✅ FIXED: consistent column name + safe query
   const { data: existingIP } = await supabase
     .from("user_ip")
-    .select("*")
+    .select("id")
     .eq("user_id", user.id)
-    .eq("ip", ip)
-    .single();
+    .eq("ip_address", ip)
+    .maybeSingle();
 
   if (existingIP) {
-    // ✅ trusted → skip OTP
     return NextResponse.json({ trusted: true });
   }
 
-  // ❗ NOT trusted → send OTP
+  // ❗ send OTP
   const { error } = await supabase.auth.signInWithOtp({
     email: user.email!,
     options: {
       shouldCreateUser: false,
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/protected`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
     },
   });
 
