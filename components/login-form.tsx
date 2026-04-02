@@ -15,16 +15,13 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-type Step = "credentials" | "otp" | "mfa";
-
 export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
-  const [step, setStep] = useState<Step>("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -36,117 +33,67 @@ export function LoginForm({
     setError(null);
 
     try {
+      // ✅ Step 1: login
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
 
-      // ✅ Check trusted IP
+      // ✅ Step 2: check IP
       const res = await fetch("/auth/check-ip");
       const { trusted } = await res.json();
 
+      if (!trusted) {
+        // 🔥 magic link flow (no manual input needed)
+        await fetch("/auth/send-otp", { method: "POST" });
+
+        throw new Error(
+          "New device detected. Check your email for verification link.",
+        );
+      }
+
+      // ✅ Step 3: check MFA requirement
       const { data: aalData } =
         await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
       const currentLevel = aalData?.currentLevel ?? "aal1";
-      const mfaRequired = currentLevel !== "aal2";
 
-      if (trusted && !mfaRequired) {
-        router.push("/protected");
-      } else if (trusted && mfaRequired) {
-        setStep("mfa");
-      } else {
-        const otpRes = await fetch("/auth/send-otp", { method: "POST" });
+      // 🔥 If MFA required → verify using input field
+      if (currentLevel !== "aal2") {
+        const { data: factors, error: factorsError } =
+          await supabase.auth.mfa.listFactors();
 
-        if (!otpRes.ok) {
-          const { error } = await otpRes.json();
-          throw new Error(error ?? "Failed to send verification email");
+        if (factorsError) throw factorsError;
+        if (!factors || factors.totp.length === 0) {
+          throw new Error("MFA not set up properly");
         }
 
-        setStep("otp");
-      }
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        const factor = factors.totp[0];
 
-  const handleOTPVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const supabase = createClient();
-    setIsLoading(true);
-    setError(null);
+        const { data: challenge, error: challengeError } =
+          await supabase.auth.mfa.challenge({
+            factorId: factor.id,
+          });
 
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: "email",
-      });
-      if (error) throw error;
+        if (challengeError) throw challengeError;
+        if (!challenge) throw new Error("Challenge failed");
 
-      await fetch("/auth/trust-ip", { method: "POST" });
-
-      const { data: aalData } =
-        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-
-      const currentLevel = aalData?.currentLevel ?? "aal1";
-
-      if (currentLevel !== "aal2") {
-        setStep("mfa");
-      } else {
-        router.push("/protected");
-      }
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleMFAVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const supabase = createClient();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // ✅ get factors
-      const { data: factors, error: factorsError } =
-        await supabase.auth.mfa.listFactors();
-
-      if (factorsError) throw factorsError;
-      if (!factors || !factors.totp || factors.totp.length === 0) {
-        throw new Error("No authenticator found");
-      }
-
-      const totpFactor = factors.totp[0];
-
-      // ✅ create challenge
-      const { data: challenge, error: challengeError } =
-        await supabase.auth.mfa.challenge({
-          factorId: totpFactor.id,
+        const { error: verifyError } = await supabase.auth.mfa.verify({
+          factorId: factor.id,
+          challengeId: challenge.id,
+          code: mfaCode,
         });
 
-      if (challengeError) throw challengeError;
-      if (!challenge) {
-        throw new Error("Failed to create challenge");
+        if (verifyError) {
+          throw new Error("Invalid authenticator code");
+        }
       }
 
-      // ✅ verify
-      const { error: verifyError } = await supabase.auth.mfa.verify({
-        factorId: totpFactor.id,
-        challengeId: challenge.id,
-        code: otp,
-      });
-
-      if (verifyError) throw verifyError;
-
+      // ✅ Success
       router.push("/protected");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Verification failed");
+      setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setIsLoading(false);
     }
@@ -155,99 +102,54 @@ export function LoginForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
-        {step === "credentials" && (
-          <>
-            <CardHeader>
-              <CardTitle className="text-2xl">Login</CardTitle>
-              <CardDescription>
-                Enter your email below to login to your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleLogin}>
-                <div className="flex flex-col gap-6">
-                  <div className="grid gap-2">
-                    <Label>Email</Label>
-                    <Input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
+        <CardHeader>
+          <CardTitle className="text-2xl">Login</CardTitle>
+          <CardDescription>
+            Login with email, password and authenticator (if enabled)
+          </CardDescription>
+        </CardHeader>
 
-                  <div className="grid gap-2">
-                    <Label>Password</Label>
-                    <Input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-
-                  {error && <p className="text-sm text-red-500">{error}</p>}
-
-                  <Button disabled={isLoading}>
-                    {isLoading ? "Logging in..." : "Login"}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </>
-        )}
-
-        {step === "otp" && (
-          <>
-            <CardHeader>
-              <CardTitle>Verify Email</CardTitle>
-              <CardDescription>Enter the code sent to {email}</CardDescription>
-            </CardHeader>
-
-            <CardContent>
-              <form onSubmit={handleOTPVerify}>
+        <CardContent>
+          <form onSubmit={handleLogin}>
+            <div className="flex flex-col gap-4">
+              <div>
+                <Label>Email</Label>
                 <Input
-                  placeholder="Enter code"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.trim())}
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
+              </div>
 
-                {error && <p className="text-sm text-red-500">{error}</p>}
+              <div>
+                <Label>Password</Label>
+                <Input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
 
-                <Button className="mt-4 w-full">
-                  {isLoading ? "Verifying..." : "Verify"}
-                </Button>
-              </form>
-            </CardContent>
-          </>
-        )}
-
-        {step === "mfa" && (
-          <>
-            <CardHeader>
-              <CardTitle>Authenticator Required</CardTitle>
-              <CardDescription>
-                Enter code from your authenticator app
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent>
-              <form onSubmit={handleMFAVerify}>
+              {/* 🔥 ALWAYS VISIBLE MFA FIELD */}
+              <div>
+                <Label>Authenticator Code (if enabled)</Label>
                 <Input
                   placeholder="123456"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.trim())}
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.trim())}
                 />
+              </div>
 
-                {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && <p className="text-sm text-red-500">{error}</p>}
 
-                <Button className="mt-4 w-full">
-                  {isLoading ? "Verifying..." : "Verify"}
-                </Button>
-              </form>
-            </CardContent>
-          </>
-        )}
+              <Button disabled={isLoading}>
+                {isLoading ? "Logging in..." : "Login"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
       </Card>
     </div>
   );
