@@ -71,6 +71,14 @@ export function LoginForm({
 
         const factor = factors.totp[0];
 
+         if (!mfaCode) {
+           await supabase.auth.mfa.challenge({
+             factorId: factor.id,
+           });
+
+           throw new Error("Enter authenticator code");
+         }
+
         const { data: challenge, error: challengeError } =
           await supabase.auth.mfa.challenge({
             factorId: factor.id,

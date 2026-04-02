@@ -1,9 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getClientIP } from "@/lib/get-ip";
 
-export async function GET() {
+function getClientIP(request: Request) {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const realIp = request.headers.get("x-real-ip");
+
+  if (forwarded) return forwarded.split(",")[0].trim();
+  if (realIp) return realIp;
+
+  return "unknown";
+}
+
+export async function GET(request: Request) {
   const cookieStore = await cookies();
 
   const supabase = createServerClient(
@@ -17,28 +26,41 @@ export async function GET() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
-          } catch {}
+          } catch (err) {
+            console.error("Cookie error:", err);
+          }
         },
       },
     },
   );
 
+  // ✅ Get user
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (userError || !user) {
+    console.error("User fetch error:", userError?.message);
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const ip = await getClientIP();
+  // ✅ Get IP properly
+  const ip = getClientIP(request);
 
-  const { data } = await supabase
+  console.log("Checking IP:", ip, "for user:", user.id);
+
+  // ✅ Check DB
+  const { data, error } = await supabase
     .from("user_ip")
     .select("id")
     .eq("user_id", user.id)
     .eq("ip_address", ip)
     .maybeSingle();
+
+  if (error) {
+    console.error("DB error:", error.message);
+  }
 
   return NextResponse.json({
     trusted: !!data,
