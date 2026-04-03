@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { type NextRequest } from "next/server";
-import { getClientIP } from "@/lib/get-ip";
+import { getClientIp } from "next-request-ip";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -19,25 +19,32 @@ export async function GET(request: NextRequest) {
     });
 
     if (!error) {
-      // ✅ Get user after verification
+      // ✅ Get user
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (user) {
-        const ip = await getClientIP();
+        // ✅ FIXED: correct IP extraction
+        const ip = getClientIp(request.headers) || "unknown";
 
-        // ✅ INSERT trusted IP
-        await supabase.from("user_ip").insert({
+        console.log("User:", user.id);
+        console.log("IP:", ip);
+
+        // ✅ Insert with error logging
+        const { error: insertError } = await supabase.from("user_ip").insert({
           user_id: user.id,
           ip_address: ip,
         });
+
+        if (insertError) {
+          console.error("Insert failed:", insertError.message);
+        }
       }
 
-      // ✅ Redirect after storing IP
       redirect("/protected");
     } else {
-      redirect(`/auth/error?error=${error?.message}`);
+      redirect(`/auth/error?error=${error.message}`);
     }
   }
 

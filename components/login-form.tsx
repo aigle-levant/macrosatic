@@ -41,12 +41,12 @@ export function LoginForm({
       if (error) throw error;
 
       // ✅ Step 2: check IP
-      const res = await fetch("/auth/check-ip");
+      const res = await fetch("/api/auth/check-ip");
       const { trusted } = await res.json();
 
       if (!trusted) {
         // 🔥 magic link flow (no manual input needed)
-        await fetch("/auth/send-otp", { method: "POST" });
+        await fetch("/api/auth/send-otp", { method: "POST" });
 
         throw new Error(
           "New device detected. Check your email for verification link.",

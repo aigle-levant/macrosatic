@@ -1,18 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getClientIp } from "next-request-ip";
+import { headers } from "next/headers";
 
-function getClientIP(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const realIp = request.headers.get("x-real-ip");
-
-  if (forwarded) return forwarded.split(",")[0].trim();
-  if (realIp) return realIp;
-
-  return "unknown";
-}
-
-export async function GET(request: Request) {
+export async function GET() {
   const cookieStore = await cookies();
 
   const supabase = createServerClient(
@@ -45,8 +37,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // ✅ Get IP properly
-  const ip = getClientIP(request);
+  // ✅ FIXED: Use next-request-ip
+  const headersList = await headers();
+  const ip = getClientIp(headersList);
 
   console.log("Checking IP:", ip, "for user:", user.id);
 

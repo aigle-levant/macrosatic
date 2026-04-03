@@ -1,19 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getClientIp } from "next-request-ip";
+import { NextRequest } from "next/server";
+import { headers } from "next/headers";
 
-// ✅ Proper IP extractor
-function getClientIP(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const realIp = request.headers.get("x-real-ip");
-
-  if (forwarded) return forwarded.split(",")[0].trim();
-  if (realIp) return realIp;
-
-  return "unknown";
-}
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
 
   const supabase = createServerClient(
@@ -64,8 +56,9 @@ export async function GET(request: Request) {
       return NextResponse.redirect("/auth/error");
     }
 
-    // ✅ Step 3: get IP
-    const ip = getClientIP(request);
+    // ✅ Step 3: get IP (FIXED)
+    const headersList = await headers();
+  const ip = getClientIp(headersList);
 
     console.log("User ID:", user.id);
     console.log("Client IP:", ip);
@@ -78,13 +71,12 @@ export async function GET(request: Request) {
 
     if (insertError) {
       console.error("IP insert failed:", insertError.message);
-      // 🚨 don't block login if this fails
     }
 
     // ✅ Step 5: redirect
-    return NextResponse.redirect("/protected");
+    return NextResponse.redirect(new URL("/protected", request.url));
   } catch (err) {
     console.error("Callback error:", err);
-    return NextResponse.redirect("/auth/error");
+    return NextResponse.redirect(new URL("/auth/error", request.url));
   }
 }

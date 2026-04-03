@@ -1,7 +1,12 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import { Button } from "./ui/button";
 
-export function Hero() {
+export async function Hero() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims;
+
   return (
     <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-background via-background to-cyan-950/20 px-6 py-16 shadow-2xl shadow-cyan-950/10 sm:px-10 lg:px-14">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.16),_transparent_24%)]" />
@@ -25,12 +30,20 @@ export function Hero() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button asChild size="lg" className="bg-cyan-400 text-slate-950 hover:bg-cyan-300">
-              <Link href="/auth/sign-up">Get started</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="border-cyan-400/30 bg-background/40">
-              <Link href="/auth/login">Login</Link>
-            </Button>
+            {user ? (
+              <Button asChild size="lg" className="bg-cyan-400 text-slate-950 hover:bg-cyan-300">
+                <Link href="/protected">Go to dashboard</Link>
+              </Button>
+            ) : (
+              <>
+                <Button asChild size="lg" className="bg-cyan-400 text-slate-950 hover:bg-cyan-300">
+                  <Link href="/auth/sign-up">Get started</Link>
+                </Button>
+                <Button asChild size="lg" variant="outline" className="border-cyan-400/30 bg-background/40">
+                  <Link href="/auth/login">Login</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 

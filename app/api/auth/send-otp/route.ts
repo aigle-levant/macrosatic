@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getClientIP } from "@/lib/get-ip";
+import { getClientIp } from "next-request-ip";
+import { headers } from "next/headers";
 
 export async function POST() {
   const cookieStore = await cookies();
@@ -31,15 +32,23 @@ export async function POST() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const ip = await getClientIP();
+  // ✅ FIXED: correct IP extraction
+  const headersList = await headers();
+  const ip = getClientIp(headersList) || "unknown";
 
-  // ✅ FIXED: consistent column name + safe query
-  const { data: existingIP } = await supabase
+  console.log("User:", user.id, "IP:", ip);
+
+  // ✅ Check if IP already trusted
+  const { data: existingIP, error: checkError } = await supabase
     .from("user_ip")
     .select("id")
     .eq("user_id", user.id)
     .eq("ip_address", ip)
     .maybeSingle();
+
+  if (checkError) {
+    console.error("Check error:", checkError.message);
+  }
 
   if (existingIP) {
     return NextResponse.json({ trusted: true });
@@ -55,7 +64,7 @@ export async function POST() {
   });
 
   if (error) {
-    console.error(error);
+    console.error("OTP error:", error);
 
     if (error.code === "over_email_send_rate_limit") {
       return NextResponse.json(
