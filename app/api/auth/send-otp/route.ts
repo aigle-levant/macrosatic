@@ -53,6 +53,15 @@ export async function POST() {
   if (existingIP) {
     return NextResponse.json({ trusted: true });
   }
+  const { error: insertError } = await supabase.from("user_ip").insert([
+    {
+      user_id: user.id,
+      ip_address: ip,
+    },
+  ]);
+  if (insertError) {
+    console.error("Insert failed:", insertError.message);
+  }
 
   // ❗ THEN send OTP
   const { error } = await supabase.auth.signInWithOtp({
