@@ -21,7 +21,7 @@ export default function MFASettings() {
   const handleEnroll = async () => {
     setLoading(true);
 
-    const res = await fetch("/auth/mfa/enroll", {
+    const res = await fetch("/api/mfa/enroll", {
       method: "POST",
     });
 
@@ -34,7 +34,7 @@ export default function MFASettings() {
   };
 
   const handleChallenge = async () => {
-    const res = await fetch("/auth/mfa/challenge", {
+    const res = await fetch("/api/mfa/challenge", {
       method: "POST",
       body: JSON.stringify({ factorId }),
     });
@@ -44,7 +44,7 @@ export default function MFASettings() {
   };
 
   const handleVerify = async () => {
-    const res = await fetch("/auth/mfa/verify", {
+    const res = await fetch("/api/mfa/verify", {
       method: "POST",
       body: JSON.stringify({
         factorId,
