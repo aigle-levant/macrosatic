@@ -32,10 +32,14 @@ export async function GET(request: NextRequest) {
         console.log("IP:", ip);
 
         // ✅ Insert with error logging
-        const { error: insertError } = await supabase.from("user_ip").insert({
-          user_id: user.id,
-          ip_address: ip,
-        });
+        const { error: insertError } = await supabase
+          .from("user_ip")
+          .insert([
+            {
+              user_id: user.id,
+              ip_address: ip,
+            },
+          ]);
 
         if (insertError) {
           console.error("Insert failed:", insertError.message);
